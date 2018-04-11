@@ -54,6 +54,8 @@ int main() {
   int minutes;
   int hours;
   int changeTime(1);
+  int currentHour;
+  bool quit(false);
 
 
   I2C_Slave rtcModule(rtcAddress, i2c1_fd);
@@ -105,19 +107,23 @@ int main() {
 
   wheelMotor.updateSpeed(500);
 
-  for (int i = 0; i < 5000; i++) {
+  currentHour = hours;
+
+  while (currentHour == hours) {
+    hoursChar = rtcModule.i2cRead8(hourRegister);
+
+    hours = convertHours(hoursChar);
+    }
+
+  wheelMotor.updateSpeed(0);
+
   secondsChar = rtcModule.i2cRead8(secondRegister); 
   minutesChar = rtcModule.i2cRead8(minuteRegister);
-  hoursChar = rtcModule.i2cRead8(hourRegister);
 
   seconds = convertSeconds(secondsChar); 
   minutes = convertMinutes(minutesChar);
-  hours = convertHours(hoursChar);
 
-  displayTime(seconds,minutes,hours,false); 
-  }
-
-  wheelMotor.updateSpeed(0);
+  displayTime(seconds,minutes,hours);
 
   wheelMotor.stopDCMotor();
   wheelMotor.closeLogger();
@@ -193,8 +199,12 @@ int convertHours(unsigned char hours) {
     hoursTens = 0x2;
   }
 
-  else {
+  else if (hoursTens == 0x10) {
     hoursTens = 0x1;
+  }
+
+  else {
+    hoursTens = 0x0;
   }
 
   hoursInt = int(hoursOnes) + 10 * int(hoursTens) + hoursModifier;
