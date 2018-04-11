@@ -9,6 +9,17 @@
 //   Please see consult additional project files for visuals.
 
 #include "I2C_Slave.h"
+#include "MotorPlate.h"
+#include "SPI_Slave.h"
+#include "GPIO.h"
+#include "DCMotor.h"
+#include <stdio.h>
+#include <math.h>
+#include <unistd.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <ctype.h>
+#include <string>
 #include <iostream>
 #include <bitset>
 #include <cstdlib>
@@ -26,6 +37,8 @@ void displayTime(int seconds, int minutes, int hours, bool format12 = true);
 
 int main() {
   int i2c1_fd = open(I2C1_PATH, O_RDWR);
+  int spi1_fd = open(SPI_DEV, O_RDWR);
+  string fn = "Signal_History.txt";
   unsigned char rtcAddress = 0x68;    // Address of RTC
   unsigned char secondRegister = 0x00;  // Address of seconds register
   unsigned char minuteRegister = 0x01;  // Address of minutes register
@@ -44,8 +57,14 @@ int main() {
 
 
   I2C_Slave rtcModule(rtcAddress, i2c1_fd);
+  DCMotor wheelMotor(spi1_fd, fn);
 
   rtcModule.i2cBegin();
+
+  wheelMotor.setupDCMotor(A0, DC_1, CCW_DC, 0, 0, 26, 13);
+  wheelMotor.setupController(100,1,1,0.01);
+  wheelMotor.startDCMotor();
+  wheelMotor.sampleHold(1, S);
 
   secondsChar = rtcModule.i2cRead8(secondRegister); 
   minutesChar = rtcModule.i2cRead8(minuteRegister);
@@ -93,6 +112,9 @@ int main() {
   hours = convertHours(hoursChar);
 
   displayTime(seconds,minutes,hours,false); 
+
+  wheelMotor.stopDCMotor();
+  wheelMotor.closeLogger();
 
   return 0;
 }
