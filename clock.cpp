@@ -55,7 +55,7 @@ int main() {
   int hours;
   int changeTime(1);
   int currentHour;
-  bool quit(false);
+  int quit(0);
 
 
   I2C_Slave rtcModule(rtcAddress, i2c1_fd);
@@ -107,23 +107,28 @@ int main() {
 
   wheelMotor.updateSpeed(500);
 
-  currentHour = hours;
+  while(quit == 0) {
+    currentHour = hours;
 
-  while (currentHour == hours) {
-    hoursChar = rtcModule.i2cRead8(hourRegister);
+    while (currentHour == hours) {
+      hoursChar = rtcModule.i2cRead8(hourRegister);
 
-    hours = convertHours(hoursChar);
+      hours = convertHours(hoursChar);
     }
 
+    secondsChar = rtcModule.i2cRead8(secondRegister); 
+    minutesChar = rtcModule.i2cRead8(minuteRegister);
+
+    seconds = convertSeconds(secondsChar); 
+    minutes = convertMinutes(minutesChar);
+
+    displayTime(seconds,minutes,hours);
+
+    cout << "Would you like to quit?" << endl;
+    cin >> quit;
+  }
+
   wheelMotor.updateSpeed(0);
-
-  secondsChar = rtcModule.i2cRead8(secondRegister); 
-  minutesChar = rtcModule.i2cRead8(minuteRegister);
-
-  seconds = convertSeconds(secondsChar); 
-  minutes = convertMinutes(minutesChar);
-
-  displayTime(seconds,minutes,hours);
 
   wheelMotor.stopDCMotor();
   wheelMotor.closeLogger();
