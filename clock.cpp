@@ -103,6 +103,9 @@ int main() {
     rtcModule.i2cWrite8(hourRegister, hoursChar);
   }
 
+  wheelMotor.updateSpeed(500);
+
+  for (int i = 0; i < 5000; i++) {
   secondsChar = rtcModule.i2cRead8(secondRegister); 
   minutesChar = rtcModule.i2cRead8(minuteRegister);
   hoursChar = rtcModule.i2cRead8(hourRegister);
@@ -112,6 +115,9 @@ int main() {
   hours = convertHours(hoursChar);
 
   displayTime(seconds,minutes,hours,false); 
+  }
+
+  wheelMotor.updateSpeed(0);
 
   wheelMotor.stopDCMotor();
   wheelMotor.closeLogger();
