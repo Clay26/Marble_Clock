@@ -34,13 +34,13 @@ int main() {
   unsigned char dateRegister = 0x04;    // Address of date register
   unsigned char monthRegister = 0x05;   // Address of month register
   unsigned char yearRegister = 0x06;    // Address of year register
-
-  unsigned char secondsChar = 0x35;
-  unsigned char minutesChar = 0x0;
-  unsigned char hoursChar = 0x0;
+  unsigned char secondsChar;
+  unsigned char minutesChar;
+  unsigned char hoursChar;
   int seconds;
   int minutes;
   int hours;
+  int changeTime(1);
 
 
   I2C_Slave rtcModule(rtcAddress, i2c1_fd);
@@ -54,6 +54,45 @@ int main() {
   seconds = convertSeconds(secondsChar); 
   minutes = convertMinutes(minutesChar);
   hours = convertHours(hoursChar);
+
+  displayTime(seconds,minutes,hours,true);
+
+  cout << "Would like to change the time?" << endl;
+  cin >> changeTime;
+
+  if (changeTime == 1) {
+    cout << "Time (hours, minutes, seconds): ";
+    cin >> hours;
+    cin >> minutes;
+    cin >> seconds;
+
+    secondsChar = writeSeconds(seconds);
+    minutesChar = writeMinutes(minutes);
+    hoursChar = writeHours(hours);
+
+    bitset<8> s(secondsChar);
+    bitset<8> m(minutesChar);
+    bitset<8> h(hoursChar);
+
+    cout << "Time (hours, minutes, seconds): " << endl;
+    cout << h << endl;
+    cout << m << endl;
+    cout << s << endl;
+
+    rtcModule.i2cWrite8(secondRegister, secondsChar);
+    rtcModule.i2cWrite8(minuteRegister, minutesChar);
+    rtcModule.i2cWrite8(hourRegister, hoursChar);
+  }
+
+  secondsChar = rtcModule.i2cRead8(secondRegister); 
+  minutesChar = rtcModule.i2cRead8(minuteRegister);
+  hoursChar = rtcModule.i2cRead8(hourRegister);
+
+  seconds = convertSeconds(secondsChar); 
+  minutes = convertMinutes(minutesChar);
+  hours = convertHours(hoursChar);
+
+  displayTime(seconds,minutes,hours,false); 
 
   return 0;
 }
@@ -221,10 +260,10 @@ unsigned char writeMinutes(int minutes) {
 unsigned char writeHours(int hours, bool format12) {
   // Converts int hours to unsigned char for register placement.
   // Conversion is based whether it is for 12 or 24 hour format.
-  unsigned char hoursChar;
-  unsigned char hoursPMChar;
-  unsigned char hoursTenChar;
-  unsigned char hoursOneChar;
+  unsigned char hoursChar(0x0);
+  unsigned char hoursPMChar(0x0);
+  unsigned char hoursTenChar(0x0);
+  unsigned char hoursOneChar(0x0);
   int hoursTen;
   int hoursOne;
 
@@ -236,6 +275,8 @@ unsigned char writeHours(int hours, bool format12) {
 
   hoursTen = hours / 10;
   hoursOne = hours - 10 * hoursTen;
+
+  cout << "hoursOne: " << hoursOne << endl;
 
   if (hoursTen > 1) {
     hoursPMChar = 0x30;
@@ -249,7 +290,14 @@ unsigned char writeHours(int hours, bool format12) {
   }
 
   hoursOneChar = hoursOne;
+
+  bitset<8> hours1(hoursOneChar);
+  cout << "hoursOneChar: " << hours1 << endl;
+
   hoursChar = hoursChar | hoursOneChar;
+
+  bitset<8> hours2(hoursChar);
+  cout << "hoursChar: " << hours2 << endl;
 
   return hoursChar;
 }
