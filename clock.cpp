@@ -44,8 +44,10 @@ int main() {
 
   unsigned char secondsTest;
   unsigned char minutesTest;
+  unsigned char hoursTest;
   int secondsTestInt;
   int minutesTestInt;
+  int hoursTestInt;
 
   //I2C_Slave rtcModule(rtcAddress, i2c1_fd);
 
@@ -68,7 +70,7 @@ int main() {
 
   displayTime(seconds,minutes,hours);
 
-  secondsTest = writeSeconds(64);
+  secondsTest = writeSeconds(14);
 
   secondsTestInt = convertSeconds(secondsTest); 
 
@@ -79,6 +81,17 @@ int main() {
   minutesTestInt = convertMinutes(minutesTest);
 
   cout << "Minutes: " << minutesTestInt << endl;
+
+  hoursTest = writeHours(21,false);
+
+  bitset<8> test5(hoursTest);
+  cout << "Hours Char: " << test5 << endl;
+
+  hoursTestInt = convertHours(hoursTest);
+
+  cout << "Hours: " << hoursTestInt << endl;
+
+  displayTime(secondsTestInt,minutesTestInt,hoursTestInt, true);
 
   return 0;
 }
@@ -145,57 +158,29 @@ int convertHours(unsigned char hours) {
   bool format12;
   unsigned char onesMask;
   unsigned char tensMask;
-  unsigned char amMask;
-  unsigned char formatMask;
-  unsigned char hoursOne;
-  unsigned char hoursTen;
-  unsigned char format;
-  unsigned char amPm;
+  unsigned char hoursTens;
+  unsigned char hoursOnes;
 
   onesMask = 0xF;
-  formatMask = 0x40;
+  tensMask = 0x30;
 
-  hoursOne = onesMask & hours;
-  format = (formatMask & hours) >> 6;
+  hoursOnes = hours & onesMask;
+  hoursTens = hours & tensMask;
 
-  if (format == 0x0) {
-    // 24 hour format.
-
-    tensMask = 0x30;
-
-    hoursTen = (tensMask & hours) >> 4;
-
-    format12 = false;
+  if (hoursTens == 0x30) {
+    hoursTens = 0x2;
   }
 
   else {
-    // 12 hour format.
-
-    tensMask = 0x10;
-    amMask = 0x20;
-
-    hoursTen = (tensMask & hours) >> 4;
-    amPm = (amMask & hours) >> 5;
-
-    format12 = true;
-
-    if (amPm == 0x1) { 
-      hoursModifier = 12;
-    }
-
+    hoursTens = 0x1;
   }
 
-  hoursInt = int(hoursOne) + 10 * int(hoursTen) + hoursModifier;
+  hoursInt = int(hoursOnes) + 10 * int(hoursTens) + hoursModifier;
 
 
-  if (hoursInt >= 24 && !format12) {
+  if (hoursInt >= 24) {
     cerr << "ERROR! HOURS IS GREATER THAN 23!" << endl;
     exit(12);
-  }
-
-  if (hoursInt >= 13 && format12) {
-    cerr << "ERROR! HOURS IS GREATER THAN 13 IN 12 HOUR FORMAT!" << endl;
-    exit(13);
   }
 
   return hoursInt;
@@ -294,4 +279,58 @@ unsigned char writeMinutes(int minutes) {
   cout << "Minutes Char: " << y_m << endl;
 
   return minutesChar;
+}
+
+unsigned char writeHours(int hours, bool format12) {
+  // Converts int hours to unsigned char for register placement.
+  // Conversion is based whether it is for 12 or 24 hour format.
+  unsigned char hoursChar;
+  unsigned char hoursPMChar;
+  unsigned char hoursTenChar;
+  unsigned char hoursOneChar;
+  int hoursTen;
+  int hoursOne;
+
+  if (format12) {
+    hoursChar = 0x1;
+
+    bitset<8> test1(hoursChar);
+    cout << "Should only be 1: " << test1 << endl;
+
+    hoursChar = hoursChar << 6;
+
+    bitset<8> test2(hoursChar);
+    cout << "1 moved to 12 hour format: " << test2 << endl;
+  }
+
+  hoursTen = hours / 10;
+  hoursOne = hours - 10 * hoursTen;
+
+  if (hoursTen > 1) {
+    hoursPMChar = 0x30;
+
+    bitset<8> test3(hoursPMChar);
+    cout << "1 moved to PM hour format: " << test3 << endl;
+
+    hoursChar = hoursChar | hoursPMChar;
+
+    bitset<8> test4(hoursChar);
+    cout << "12 hours format and PM or 20 hour: " << test4 << endl;
+  }
+
+  else if (hoursTen == 1) {
+    hoursTenChar = 0x10;
+    hoursChar = hoursChar | hoursTenChar;
+
+    bitset<8> test5(hoursChar);
+    cout << "10 hour: " << test5 << endl;
+  }
+
+  hoursOneChar = hoursOne;
+  hoursChar = hoursChar | hoursOneChar;
+
+  bitset<8> test6(hoursChar);
+  cout << "1 hour: " << test6 << endl;
+
+  return hoursChar;
 }
