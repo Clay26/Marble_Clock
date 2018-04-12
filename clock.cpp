@@ -23,6 +23,7 @@
 #include <iostream>
 #include <bitset>
 #include <cstdlib>
+#include <wiringPi.h>
 
 using namespace std;
 
@@ -35,8 +36,7 @@ unsigned char writeMinutes(int minutes);
 unsigned char writeHours(int hours, bool format12 = false);
 void displayTime(int seconds, int minutes, int hours, bool format12 = true);
 
-int main() {
-  int i2c1_fd = open(I2C1_PATH, O_RDWR);
+int main() { int i2c1_fd = open(I2C1_PATH, O_RDWR);
   int spi1_fd = open(SPI_DEV, O_RDWR);
   string fn = "Signal_History.txt";
   unsigned char rtcAddress = 0x68;    // Address of RTC
@@ -47,27 +47,55 @@ int main() {
   unsigned char dateRegister = 0x04;    // Address of date register
   unsigned char monthRegister = 0x05;   // Address of month register
   unsigned char yearRegister = 0x06;    // Address of year register
-  unsigned char secondsChar;
-  unsigned char minutesChar;
-  unsigned char hoursChar;
-  int seconds;
-  int minutes;
-  int hours;
-  int changeTime(1);
-  int currentHour;
-  int quit(0);
+  unsigned char secondsChar;            // Contents of second register
+  unsigned char minutesChar;            // Contents of minute register
+  unsigned char hoursChar;              // Contents of hour register
+  int seconds;                          // Number of seconds on RTC module
+  int minutes;                          // Number of minutes on RTC module
+  int hours;                            // Number of hours on RTC module
+  int changeTime(1);                    // Whether or not user want to change
+  // time
+  int currentHour;                      // Current hour used in while loop
+  int pwmSuccess(1);                    // Whether the PWM pin was initialized 
+  // correctly
+  int quit(0);                          // Whether the user wants to quit clock
+  const int SERVO_PIN = 18;             // GPIO pin number servo is connected to
+  // (Has to be on PWM capable pin)
+  const int OPEN_GATE = 100;            // Open gate position for servo
+  const int CLOSE_GATE = 50;            // Close gate position for servo
 
-
+  // RTC module initialization on I2C bus.
   I2C_Slave rtcModule(rtcAddress, i2c1_fd);
-  DCMotor wheelMotor(spi1_fd, fn);
 
   rtcModule.i2cBegin();
+
+  // Motor for wheel set up on SPI bus.
+  DCMotor wheelMotor(spi1_fd, fn);
 
   wheelMotor.setupDCMotor(A0, DC_1, CCW_DC, 0, 0, 26, 13);
   wheelMotor.setupController(100,1,1,0.01);
   wheelMotor.startDCMotor();
   wheelMotor.sampleHold(1, S);
 
+  // Servo motor for gate set up on PWM pin.
+  // Returns 0 is set up was a success
+  pwmSuccess = wiringPiSetupGpio();
+
+  if (pwmSuccess != 0) {
+    cerr << "ERROR! WiringPi not setup!" << endl;
+    exit(101);
+  }
+
+  // Set pwm to mark space mode
+  pwmSetMode(PWM_MODE_MS);
+
+  pwmSetRange(1000);
+
+  pwmSetClock(384);
+
+  // Servo is set up.
+
+  // Read the current time on RTC module.
   secondsChar = rtcModule.i2cRead8(secondRegister); 
   minutesChar = rtcModule.i2cRead8(minuteRegister);
   hoursChar = rtcModule.i2cRead8(hourRegister);
@@ -76,12 +104,18 @@ int main() {
   minutes = convertMinutes(minutesChar);
   hours = convertHours(hoursChar);
 
+  // Display time on RTC module.
+  // Asks if user wants to update to a different time.
   displayTime(seconds,minutes,hours,true);
 
-  cout << "Would like to change the time?" << endl;
+  // User enters a 1 to change the time or a 0 to keep the current time.
+  cout << "Would like to change the time?" << endl;  
   cin >> changeTime;
 
   if (changeTime == 1) {
+    // User enters the upadated time.
+    // Enter time with spaces in between each time component.
+    // Enter hours in 24 hour format.
     cout << "Time (hours, minutes, seconds): ";
     cin >> hours;
     cin >> minutes;
@@ -91,44 +125,54 @@ int main() {
     minutesChar = writeMinutes(minutes);
     hoursChar = writeHours(hours);
 
-    bitset<8> s(secondsChar);
-    bitset<8> m(minutesChar);
-    bitset<8> h(hoursChar);
-
-    cout << "Time (hours, minutes, seconds): " << endl;
-    cout << h << endl;
-    cout << m << endl;
-    cout << s << endl;
-
     rtcModule.i2cWrite8(secondRegister, secondsChar);
     rtcModule.i2cWrite8(minuteRegister, minutesChar);
     rtcModule.i2cWrite8(hourRegister, hoursChar);
   }
 
+  // Everything had been set up.
+
+  // Set servo motor to close gate position.
+  pwmWrite(SERVO_PIN, CLOSE_GATE);
+
+  // Start main wheel to start carrying marbles.
   wheelMotor.updateSpeed(500);
 
-  while(quit == 0) {
+  // Enter infinite while loop for clock.
+  while(1) {
     currentHour = hours;
 
+    // Check if the hour has changed.
     while (currentHour == hours) {
       hoursChar = rtcModule.i2cRead8(hourRegister);
 
       hours = convertHours(hoursChar);
     }
 
+    // Once hour has changed, open servo gate to let one marble on to hour
+    // track.
+    pwmWrite(SERVO_PIN, OPEN_GATE);
+    usleep(1000000);
+
+    // Fetch time.
     secondsChar = rtcModule.i2cRead8(secondRegister); 
     minutesChar = rtcModule.i2cRead8(minuteRegister);
 
     seconds = convertSeconds(secondsChar); 
     minutes = convertMinutes(minutesChar);
 
+    // Display new hour change to user.
     displayTime(seconds,minutes,hours);
 
-    cout << "Would you like to quit?" << endl;
-    cin >> quit;
+    pwmWrite(SERVO_PIN, CLOSE_GATE);
+    usleep(1000000);
   }
 
+  // Turn off main wheel motor.
   wheelMotor.updateSpeed(0);
+  
+  // Turn off main wheel motor.
+  pwmWrite(SERVO_PIN, 0);
 
   wheelMotor.stopDCMotor();
   wheelMotor.closeLogger();
@@ -319,8 +363,6 @@ unsigned char writeHours(int hours, bool format12) {
   hoursTen = hours / 10;
   hoursOne = hours - 10 * hoursTen;
 
-  cout << "hoursOne: " << hoursOne << endl;
-
   if (hoursTen > 1) {
     hoursPMChar = 0x30;
 
@@ -334,13 +376,7 @@ unsigned char writeHours(int hours, bool format12) {
 
   hoursOneChar = hoursOne;
 
-  bitset<8> hours1(hoursOneChar);
-  cout << "hoursOneChar: " << hours1 << endl;
-
   hoursChar = hoursChar | hoursOneChar;
-
-  bitset<8> hours2(hoursChar);
-  cout << "hoursChar: " << hours2 << endl;
 
   return hoursChar;
 }
