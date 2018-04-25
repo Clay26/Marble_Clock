@@ -87,6 +87,8 @@ int main() { int i2c1_fd = open(I2C1_PATH, O_RDWR);
   }
 
   // Set pwm to mark space mode
+  pinMode(SERVO_PIN, PWM_OUTPUT);
+
   pwmSetMode(PWM_MODE_MS);
 
   pwmSetRange(1000);
@@ -134,9 +136,10 @@ int main() { int i2c1_fd = open(I2C1_PATH, O_RDWR);
 
   // Set servo motor to close gate position.
   pwmWrite(SERVO_PIN, CLOSE_GATE);
+  usleep(100000);
 
   // Start main wheel to start carrying marbles.
-  wheelMotor.updateSpeed(500);
+  wheelMotor.updateSpeed(240);
 
   // Enter infinite while loop for clock.
   while(1) {
@@ -149,10 +152,15 @@ int main() { int i2c1_fd = open(I2C1_PATH, O_RDWR);
       hours = convertHours(hoursChar);
     }
 
-    // Once hour has changed, open servo gate to let one marble on to hour
-    // track.
+    // Once hour has changed, stop motor.
+    wheelMotor.updateSpeed(0);
+
+    // Wait 0.5 seconds to ensure balls have circulated out of servo region,
+    // then open servo gate to let one marble on to hour track.
+    usleep(500000);
+
     pwmWrite(SERVO_PIN, OPEN_GATE);
-    usleep(1000000);
+    usleep(100000);
 
     // Fetch time.
     secondsChar = rtcModule.i2cRead8(secondRegister); 
@@ -164,8 +172,12 @@ int main() { int i2c1_fd = open(I2C1_PATH, O_RDWR);
     // Display new hour change to user.
     displayTime(seconds,minutes,hours);
 
+    // Close servo gate.
     pwmWrite(SERVO_PIN, CLOSE_GATE);
-    usleep(1000000);
+    usleep(100000);
+
+    // Start ball circulation.
+    wheelMotor.updateSpeed(240);
   }
 
   // Turn off main wheel motor.
