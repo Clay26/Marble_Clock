@@ -157,10 +157,10 @@ int main() { int i2c1_fd = open(I2C1_PATH, O_RDWR);
 
     // Wait 0.5 seconds to ensure balls have circulated out of servo region,
     // then open servo gate to let one marble on to hour track.
-    usleep(500000);
+    usleep(3000000);
 
     pwmWrite(SERVO_PIN, OPEN_GATE);
-    usleep(100000);
+    usleep(1000000);
 
     // Fetch time.
     secondsChar = rtcModule.i2cRead8(secondRegister); 
