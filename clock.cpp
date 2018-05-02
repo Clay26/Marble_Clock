@@ -132,7 +132,7 @@ int main() { int i2c1_fd = open(I2C1_PATH, O_RDWR);
     rtcModule.i2cWrite8(hourRegister, hoursChar);
   }
 
-  // Everything had been set up.
+  // Everything has been set up.
 
   // Set servo motor to close gate position.
   pwmWrite(SERVO_PIN, CLOSE_GATE);
@@ -155,7 +155,7 @@ int main() { int i2c1_fd = open(I2C1_PATH, O_RDWR);
     // Once hour has changed, stop motor.
     wheelMotor.updateSpeed(0);
 
-    // Wait 0.5 seconds to ensure balls have circulated out of servo region,
+    // Wait 3 seconds to ensure balls have circulated out of servo region,
     // then open servo gate to let one marble on to hour track.
     usleep(3000000);
 
